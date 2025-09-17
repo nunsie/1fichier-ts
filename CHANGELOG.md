@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/nunsie/1fichier-ts/compare/v1.0.0...v1.0.1) (2025-09-17)
+
+
+### Bug Fixes
+
+* **ci:** secrets ([3332d50](https://github.com/nunsie/1fichier-ts/commit/3332d5043f0bdf2ec6e367b1d09cdcb399ef0076))
+
 # 1.0.0 (2025-09-17)
 
 

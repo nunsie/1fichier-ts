@@ -1,6 +1,6 @@
 {
   "name": "1fichier",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A typescript client for the 1fichier API",
   "main": "dist/src/index.js",
   "type": "module",
