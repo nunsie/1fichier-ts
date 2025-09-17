@@ -1,13 +1,13 @@
 {
   "name": "1fichier",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "A typescript client for the 1fichier API",
   "main": "dist/src/index.js",
   "type": "module",
   "scripts": {
-  "build": "swc src -d dist",
-  "test": "vitest",
-  "release": "semantic-release"
+    "build": "swc src -d dist",
+    "test": "vitest",
+    "release": "semantic-release"
   },
   "repository": {
     "type": "git",
