@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/nunsie/1fichier-ts/compare/v1.0.1...v1.0.2) (2025-09-17)
+
+
+### Bug Fixes
+
+* actually build the thing ([ccf1c63](https://github.com/nunsie/1fichier-ts/commit/ccf1c633719daf8f3db03a22eae952ca599f8e01))
+
 ## [1.0.1](https://github.com/nunsie/1fichier-ts/compare/v1.0.0...v1.0.1) (2025-09-17)
 
 
