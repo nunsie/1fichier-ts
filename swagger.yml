@@ -1,0 +1,1322 @@
+openapi: 3.0.3
+info:
+  title: 1fichier.com API
+  version: "1.0.0"
+  description: |
+    This is the official OpenAPI specification for the 1fichier.com API, a file hosting and management service. All endpoints, request and response fields, and schemas are fully documented for clarity and ease of integration.
+    Comprehensive OpenAPI specification for 1fichier.com file hosting API.
+    Authentication is via Bearer API Key in the Authorization header.
+    
+    ## General Notices
+    - API is in beta for free registered users.
+    - All requests must use HTTP/1.1 ("Host:" header required).
+    - API is full JSON. Set "pretty" to 1 for readable output (not recommended for production).
+    - Rate limit: **3 requests per second**. Abuse (429) or repeated errors (401, 403, 404, 410) may result in temporary ban (IP/account).
+    - API key and password are case sensitive and strictly confidential.
+    - Download links are of the form https://domain/?id (5-20 alphanumeric chars).
+    - Dates are in French time zone (CET/CEST).
+    - Deprecated endpoints may be removed at any time.
+servers:
+  - url: https://api.1fichier.com/v1
+security:
+  - ApiKeyAuth: []
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+  schemas:
+    FileInfo:
+      type: object
+      description: "Detailed information about a file stored on 1fichier.com."
+      properties:
+        url:
+          type: string
+          description: "Download link for the file."
+        filename:
+          type: string
+          description: "Name of the file."
+        size:
+          type: integer
+          description: "Size of the file in bytes."
+        date:
+          type: string
+          description: "Upload date and time (YYYY-MM-DD HH:MM:SS)."
+        folder_id:
+          type: integer
+          description: "ID of the folder containing the file."
+        path:
+          type: string
+          description: "Path to the file within the folder structure."
+        checksum:
+          type: string
+          description: "Whirlpool checksum of the file."
+        content_type:
+          type: string
+          description: "MIME type of the file (e.g. image/jpeg)."
+        description:
+          type: string
+          description: "User-provided description of the file."
+        pass:
+          type: integer
+          description: "Indicates if the file is password protected (0/1)."
+        no_ssl:
+          type: integer
+          description: "Indicates if the download link is offered without SSL (0/1)."
+        inline:
+          type: integer
+          description: "Indicates if the file is served inline (0/1)."
+        cdn:
+          type: integer
+          description: "Indicates if the file is flagged for CDN (0/1)."
+        acl:
+          type: object
+          description: "Advanced access control list for the file."
+          properties:
+            ip:
+              type: array
+              items: { type: string }
+              description: "List of allowed IP addresses (CIDR format)."
+            country:
+              type: array
+              items: { type: string }
+              description: "List of allowed countries (ISO 2-letter code)."
+            email:
+              type: array
+              items: { type: string }
+              description: "List of allowed user emails."
+            premium:
+              type: integer
+              description: "Restrict access to Premium/Access customers (0/1)."
+    FileListItem:
+      type: object
+      description: "Summary information about a file in a folder listing."
+      properties:
+        url:
+          type: string
+          description: "Download link for the file."
+        filename:
+          type: string
+          description: "Name of the file."
+        size:
+          type: integer
+          description: "Size of the file in bytes."
+        date:
+          type: string
+          description: "Upload date and time (YYYY-MM-DD HH:MM:SS)."
+        checksum:
+          type: string
+          description: "Whirlpool checksum of the file."
+        content-type:
+          type: string
+          description: "MIME type of the file."
+        pass:
+          type: integer
+          description: "Indicates if the file is password protected (0/1)."
+        acl:
+          type: integer
+          description: "Indicates if the file is protected by access list restriction (0/1)."
+        cdn:
+          type: integer
+          description: "Indicates if the file is flagged for CDN (0/1)."
+    FolderInfo:
+      type: object
+      description: "Detailed information about a folder and its contents."
+      properties:
+        folder_id:
+          type: integer
+          description: "Unique identifier for the folder."
+        name:
+          type: string
+          description: "Name of the folder."
+        create_date:
+          type: string
+          description: "Date and time the folder was created (YYYY-MM-DD HH:MM:SS)."
+        shared:
+          type: string
+          description: "Public share URL for the folder, if applicable."
+        pass:
+          type: integer
+          description: "Indicates if the folder is password protected (0/1)."
+        shares:
+          type: array
+          description: "List of groupware shares for the folder."
+          items:
+            type: object
+            description: "Groupware share details."
+            properties:
+              email:
+                type: string
+                description: "Email address of the shared user."
+              rw:
+                type: integer
+                description: "Indicates if the share is in write mode (0/1)."
+              hide_links:
+                type: integer
+                description: "Indicates if download links are hidden (0/1)."
+        user:
+          type: string
+          description: "Owner's email address."
+        rw:
+          type: integer
+          description: "Indicates if write mode is allowed (0/1)."
+        hide_links:
+          type: integer
+          description: "Indicates if hide_links mode is enabled (0/1)."
+        files:
+          type: integer
+          description: "Number of files in the folder (not recursive)."
+        size:
+          type: integer
+          description: "Total size of files in the folder (not recursive)."
+        sub_folders:
+          type: array
+          description: "List of child folders."
+          items: { $ref: '#/components/schemas/FolderInfo' }
+        items:
+          type: array
+          description: "List of files in the folder."
+          items: { $ref: '#/components/schemas/FileListItem' }
+paths:
+  /download/get_token.cgi:
+    post:
+      summary: Generate download token
+      description: |
+        Issues a single-use access token for file download. **Token is valid for 5 minutes.** Recovery allowed for 30 minutes. Rate limit: 3/sec. Abuse may result in ban. See [API docs](https://1fichier.com/api.html).
+        
+        - Only available to Premium, Access, CDN customers.
+        - Download links must be https://domain/?id (5-20 alphanumeric chars).
+        - By default, access URL is SSL.
+        - Range requests supported for resuming downloads.
+        - Groupware sharing is private and does not consider passwords or access restrictions.
+      tags:
+        - "Download"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  description: "Download link (e.g. https://1fichier.com/?example)"
+                inline:
+                  type: integer
+                  description: "0 or 1. If enabled, forces inline display. Can also add &inline=1 to the URL."
+                cdn:
+                  type: integer
+                  description: "0 or 1. Use CDN credits (forced if Premium/Access and identified server)."
+                restrict_ip:
+                  type: integer
+                  description: "For CDN only. 0: No restriction, 1: Prohibits IP changes, 2: Prohibits any sub-requests."
+                single:
+                  type: integer
+                  description: "0: Child requests allowed. 1: Prohibits any sub-requests."
+                pass:
+                  type: string
+                  description: "Access password to the file, if restricted by password."
+                no_ssl:
+                  type: integer
+                  description: "0 or 1. Disable SSL on the download link."
+                folder_id:
+                  type: integer
+                  description: "Folder ID (if groupware sharing with hidden download link option)."
+                filename:
+                  type: string
+                  description: "Filename (if groupware sharing with hidden download link option)."
+                sharing_user:
+                  type: string
+                  description: "Email of the user who shares the resource (required if folder_id=0/root)."
+      responses:
+        '200':
+          description: Download token (valid for 5 minutes)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    description: "URL for direct access to the requested resource."
+                  status:
+                    type: string
+                    description: "Status of the request (OK/KO)."
+                  message:
+                    type: string
+                    description: "Information message."
+  /upload/get_upload_server.cgi:
+    post:
+      summary: Get upload server node
+      description: |
+        Returns the optimal upload server node for file upload. The upload server may vary to distribute load. Rate limit: 3/sec. Abuse may result in ban.
+      tags:
+        - "Upload"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pretty:
+                  type: integer
+                  description: "Set to 1 for pretty-printed JSON output (not recommended for production)."
+      responses:
+        '200':
+          description: Upload server info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    description: "Host name of the server (alphanumeric)."
+                  id:
+                    type: string
+                    description: "Unique identifier of emission (10 random alphanumeric characters)."
+  /upload.cgi:
+    post:
+      summary: Upload files
+      description: |
+        Upload files to 1fichier.com. **Max 500GB/upload, 300GB/file, 500 files/upload.** Upload process limited to 4 hours. Rate limit: 3/sec. Abuse may result in ban.
+        
+        - Synchronous upload (all operations performed during call).
+        - Use POST "multipart/form-data".
+        - SSL is enabled by default (can be disabled).
+        - Cookie authentication is discouraged (new login purges previous sessions).
+        - Storage process starts after redirection to "end.pl".
+        - Files may not be immediately available after upload.
+      tags:
+        - "Upload"
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                mail:
+                  type: string
+                  description: "Email to receive notification (optional)."
+                did:
+                  type: integer
+                  description: "Destination folder ID (only valid if identified, optional)."
+                user:
+                  type: string
+                  description: "Email address of registered user receiving the files (only valid if unidentified, optional)."
+                pass:
+                  type: string
+                  description: "Account password (optional, used with 'user')."
+                domain:
+                  type: integer
+                  description: "Numerical identifier of the destination domain (optional, default 0 for 1fichier.com)."
+                dpass:
+                  type: string
+                  description: "Password to access files (optional, protects access)."
+                mails:
+                  type: string
+                  description: "Notification to contacts (max 250 chars/email, 20 emails max, optional)."
+                message:
+                  type: string
+                  description: "Message for notification to contacts (max 2000 chars, optional)."
+                file[]:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: "Files to be sent (required, max 500 per upload, max 500GB/upload, max 300GB/file)."
+      responses:
+        '302':
+          description: Redirect to upload report (see /end.pl)
+        '200':
+          description: Upload result
+  /end.pl:
+    get:
+      summary: Get upload result
+      description: |
+        Returns the result of an upload operation. Can be exported as CSV or JSON. The upload status is deleted 2 hours after the end of the program. Rate limit: 3/sec. Abuse may result in ban.
+      tags:
+        - "Upload"
+      parameters:
+        - name: xid
+          in: query
+          required: true
+          schema: { type: string }
+          description: "Temporary unique identifier of upload (10 random alphanumeric characters)."
+        - name: Export
+          in: query
+          schema: { type: integer }
+          description: "Set to 1 to display basic CSV export instead of web page (optional)."
+        - name: JSON
+          in: query
+          schema: { type: integer }
+          description: "Set to 1 for formatted JSON export, 2 for readable output for debugging (optional)."
+      responses:
+        '200':
+          description: Upload result (CSV or JSON)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  incoming:
+                    type: integer
+                    description: "If the files are placed in the 'incoming' folder (accessible only to the identified user)."
+                  links:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        download:
+                          type: string
+                          description: "Complete download link."
+                        filename:
+                          type: string
+                          description: "Filename."
+                        remove:
+                          type: string
+                          description: "Complete removal link (not filled if the upload is linked to an account)."
+                        size:
+                          type: string
+                          description: "File size in bytes."
+                        whirlpool:
+                          type: string
+                          description: "Checksum (whirlpool)."
+  /file/ls.cgi:
+    post:
+      summary: List files in folder
+      description: |
+        List files contained in a folder. **Listing all files of the account is limited to 1 request per hour.** Listing folders is limited to 5,000 results and 1 request per folder per 30s. Rate limit: 3/sec. Abuse may result in ban.
+      tags:
+        - "File"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                folder_id:
+                  type: integer
+                  description: "Folder identifier. Root if unspecified or 0. -1 lists all files of the account."
+                sharing_user:
+                  type: string
+                  description: "Email of the user sharing the folder (used if folder_id=0/root, optional)."
+                sent_before:
+                  type: string
+                  description: "Limit return by date (YYYY-MM-DD HH:MM:SS, optional)."
+                sent_after:
+                  type: string
+                  description: "Limit return by date (YYYY-MM-DD HH:MM:SS, optional)."
+      responses:
+        '200':
+          description: List of files
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: "Status of the request (OK/KO)."
+                  count:
+                    type: integer
+                    description: "Number of files returned."
+                  items:
+                    type: array
+                    description: "Array of file objects."
+                    items: { $ref: '#/components/schemas/FileListItem' }
+  /file/info.cgi:
+    post:
+      summary: Get file information
+      tags:
+        - "File"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  description: "Download link (e.g. https://1fichier.com/?example)."
+                pass:
+                  type: string
+                  description: "Access password to the file, if restricted by password (optional)."
+                folder_id:
+                  type: integer
+                  description: "Folder ID (if groupware shared folder with hidden download link feature, optional)."
+                filename:
+                  type: string
+                  description: "Filename (exact/case sensitive, optional)."
+                sharing_user:
+                  type: string
+                  description: "Email of the account that shares the folder (useful if root folder/folder_id=0, optional)."
+      responses:
+        '200':
+          description: File information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileInfo'
+              examples:
+                example:
+                  value:
+                    url: "https://1fichier.com/?example"
+                    filename: "Example.dat"
+                    size: 1234
+                    date: "YYYY-MM-DD HH:MM:SS"
+                    folder_id: 1234
+                    path: "ExampleA/ExampleB"
+                    checksum: "checksum"
+                    content_type: "mime/type"
+                    description: "File description"
+                    pass: 0
+                    no_ssl: 0
+                    inline: 0
+                    cdn: 0
+                    acl: { ip: ["IP_CIDR_address"], country: ["FR"], email: ["user@example.com"], premium: 1 }
+  /file/scan.cgi:
+    post:
+      summary: Scan file for viruses
+      description: |
+        Force an immediate scan of a file for viruses/malware. **Limited to files <5GB.** Results are cached for 6 hours. Rate limit: 3/sec. Abuse may result in ban.
+      tags:
+        - "File"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  description: "Download link to scan (e.g. https://1fichier.com/?example)."
+      responses:
+        '200':
+          description: Scan result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: "Scan status (OK/KO). If 'KO' and a virus was detected, the file will be removed."
+                  message:
+                    type: string
+                    description: "Further information if KO."
+                  date:
+                    type: string
+                    description: "Date of the scan (if the information comes from cache)."
+  /file/rm.cgi:
+    post:
+      summary: Remove files
+      tags:
+        - "File"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  description: "Array of files to remove. Each item must include the download link and optional removal code."
+                  items:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+                        description: "Download link to remove."
+                      code:
+                        type: string
+                        description: "Removal code for files not linked to an account (optional)."
+      responses:
+        '200':
+          description: Remove result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: "Request status (OK/KO)."
+                  removed:
+                    type: integer
+                    description: "Number of removed files."
+                  urls:
+                    type: array
+                    description: "List of removed file download links."
+                    items: { type: string }
+  /file/mv.cgi:
+    post:
+      summary: Move files
+      tags:
+        - "File"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                urls:
+                  type: array
+                  description: "Array of download links to move. Only your own files or files with write access."
+                  items: { type: string }
+                destination_folder_id:
+                  type: integer
+                  description: "Target folder ID (root if 0, must be defined)."
+                destination_user:
+                  type: string
+                  description: "Email of user sharing the destination resource (used if destination_folder_id=0, optional)."
+                rename:
+                  type: string
+                  description: "Rename the file (works with 1 URL only, optional)."
+      responses:
+        '200':
+          description: Move result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: "Request status (OK/KO)."
+                  moved:
+                    type: integer
+                    description: "Number of moved files."
+                  urls:
+                    type: array
+                    description: "List of moved file download links."
+                    items: { type: string }
+                  filename:
+                    type: string
+                    description: "New filename, only if renamed."
+  /file/rename.cgi:
+    post:
+      summary: Rename files
+      tags:
+        - "File"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                urls:
+                  type: array
+                  description: "Array of files to rename. Only works with account files."
+                  items:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+                        description: "Download link to rename."
+                      filename:
+                        type: string
+                        description: "New filename."
+                pretty:
+                  type: integer
+                  description: "Set to 1 for pretty-printed JSON output (optional)."
+      responses:
+        '200':
+          description: Rename result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: "Request status (OK/KO)."
+                  renamed:
+                    type: integer
+                    description: "Number of renamed files."
+                  urls:
+                    type: array
+                    description: "List of renamed files with old and new filenames."
+                    items:
+                      type: object
+                      properties:
+                        url:
+                          type: string
+                          description: "Download link."
+                        old_filename:
+                          type: string
+                          description: "Old filename."
+                        new_filename:
+                          type: string
+                          description: "New filename."
+  /file/cp.cgi:
+    post:
+      summary: Copy files
+      tags:
+        - "File"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                urls:
+                  type: array
+                  description: "Array of download links to copy. Only files you have access to."
+                  items: { type: string }
+                folder_id:
+                  type: integer
+                  description: "Target folder ID (0 or not specified for root, optional)."
+                pass:
+                  type: string
+                  description: "Access password (optional)."
+                sharing_user:
+                  type: string
+                  description: "Email of user sharing the destination resource (used if folder_id=0, optional)."
+                rename:
+                  type: string
+                  description: "Rename the file (works with 1 URL only, optional)."
+      responses:
+        '200':
+          description: Copy result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: "Request status (OK/KO)."
+                  copied:
+                    type: integer
+                    description: "Number of copied files."
+                  urls:
+                    type: array
+                    description: "List of copied files with source and destination URLs."
+                    items:
+                      type: object
+                      properties:
+                        from_url:
+                          type: string
+                          description: "Source download link."
+                        to_url:
+                          type: string
+                          description: "Destination download link."
+                  filename:
+                    type: string
+                    description: "New filename, only if renamed."
+  /file/chattr.cgi:
+    post:
+      summary: Change file attributes
+      tags:
+        - "File"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                urls:
+                  type: array
+                  description: "Array of download links to edit. You can act on your files or files with write access."
+                  items: { type: string }
+                filename:
+                  type: string
+                  description: "Change the file name (works with a single file, optional)."
+                description:
+                  type: string
+                  description: "Modify the description of the file(s) (may be empty, optional)."
+                pass:
+                  type: string
+                  description: "Change the access password (6 chars min, may be empty to remove, optional)."
+                no_ssl:
+                  type: integer
+                  description: "Force default access without SSL encryption (optional)."
+                inline:
+                  type: integer
+                  description: "Forces 'inline' access, informs browser of content-type, does not force download box (optional)."
+                cdn:
+                  type: integer
+                  description: "Flag the files in 'CDN' (optional)."
+                acl:
+                  type: object
+                  description: "Advanced access controls (may be empty to remove, optional)."
+                  properties:
+                    ip:
+                      type: array
+                      items: { type: string }
+                      description: "List of IPs to allow (CIDR format)."
+                    country:
+                      type: array
+                      items: { type: string }
+                      description: "List of countries to allow (2-char ISO code)."
+                    email:
+                      type: array
+                      items: { type: string }
+                      description: "List of registered user emails to allow."
+                    premium:
+                      type: integer
+                      description: "Only allow Premium/Access customers (0/1)."
+      responses:
+        '200':
+          description: Change attributes result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: "Request status (OK/KO)."
+                  updated:
+                    type: integer
+                    description: "Number of updated URLs."
+                  urls:
+                    type: array
+                    description: "List of updated file download links."
+                    items: { type: string }
+  /folder/ls.cgi:
+    post:
+      summary: List folders
+      tags:
+        - "Folder"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                folder_id:
+                  type: integer
+                  description: "Identifier of the folder. Root if unspecified or 0."
+                sharing_user:
+                  type: string
+                  description: "Email of the user who shares the folder (mandatory if sharing the root folder, ignored otherwise)."
+                files:
+                  type: integer
+                  description: "Add files list of the folder (optional, 0/1)."
+      responses:
+        '200':
+          description: Folder info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FolderInfo'
+  /folder/mkdir.cgi:
+    post:
+      summary: Create folder
+      tags:
+        - "Folder"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: "Folder name (max 250 chars)."
+                folder_id:
+                  type: integer
+                  description: "Identifier of the parent folder. Root if unspecified or 0."
+                sharing_user:
+                  type: string
+                  description: "Email of the user sharing a folder (required if groupware sharing the root folder, optional)."
+      responses:
+        '200':
+          description: Create folder result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: "Request status (OK/KO)."
+                  folder_id:
+                    type: integer
+                    description: "Identifier of the created folder. Not specified if fail."
+                  name:
+                    type: string
+                    description: "Name of the folder. Not specified if fail."
+                  message:
+                    type: string
+                    description: "Information message."
+  /folder/share.cgi:
+    post:
+      summary: Share folder
+      tags:
+        - "Folder"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                folder_id:
+                  type: integer
+                  description: "Folder ID."
+                share:
+                  type: integer
+                  description: "If public sharing accessible via URL (0/1)."
+                pass:
+                  type: string
+                  description: "Access password for public share (6 chars min, optional)."
+                shares:
+                  type: array
+                  description: "Groupware shares with other registered users (empty array to remove any groupware share)."
+                  items:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+                        description: "Registered user email address."
+                      rw:
+                        type: integer
+                        description: "Allow in write mode (0/1)."
+                      hide_links:
+                        type: integer
+                        description: "Hide download links (implies rw=0, 0/1)."
+      responses:
+        '200':
+          description: Share folder result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: "Request status (OK/KO)."
+                  url:
+                    type: string
+                    description: "Folder access URL, if public share accessible via URL."
+                  message:
+                    type: string
+                    description: "Information message."
+  /folder/mv.cgi:
+    post:
+      summary: Move folder
+      tags:
+        - "Folder"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                folder_id:
+                  type: integer
+                  description: "Folder ID to move (source)."
+                destination_folder_id:
+                  type: integer
+                  description: "Destination folder ID (root if 0)."
+                destination_user:
+                  type: string
+                  description: "User email (used for groupware share with destination_folder_id=0, optional)."
+                rename:
+                  type: string
+                  description: "New name for the folder (optional, ignores destination_*)."
+      responses:
+        '200':
+          description: Move folder result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: "Request status (OK/KO)."
+                  message:
+                    type: string
+                    description: "Information message."
+                  old_name:
+                    type: string
+                    description: "Old folder name."
+                  new_name:
+                    type: string
+                    description: "New folder name."
+  /folder/rm.cgi:
+    post:
+      summary: Remove folder
+      tags:
+        - "Folder"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                folder_id:
+                  type: integer
+                  description: "Folder ID to remove."
+      responses:
+        '200':
+          description: Remove folder result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: "Request status (OK/KO)."
+                  message:
+                    type: string
+                    description: "Information message."
+  /user/info.cgi:
+    post:
+      summary: Get or set account info
+      description: |
+        Show or set account status and settings. **Limited to 1/min per IP and 1/5min per user.** Rate limit: 3/sec. Abuse may result in ban.
+      tags:
+        - "User"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ftp_mode:
+                  type: integer
+                  description: "Mode of treatment of files uploaded by FTP. 0: automatic, 1: manual."
+                ftp_did:
+                  type: integer
+                  description: "Destination folder ID for files uploaded by FTP (default root/0)."
+                ftp_report:
+                  type: integer
+                  description: "Send notification email after processing FTP uploads (0/1)."
+                ru_report:
+                  type: integer
+                  description: "Send notification email after processing Remote Upload request (0/1)."
+                default_domain:
+                  type: integer
+                  description: "Default file hosting domain (see domain table)."
+                page_limit:
+                  type: integer
+                  description: "Limit the number of files shown on a page (web interface)."
+                default_port:
+                  type: integer
+                  description: "Default download port. 0: HTTP SSL, 1: HTTP."
+                default_port_files:
+                  type: integer
+                  description: "Default download port for your files. 0: HTTP SSL, 1: HTTP."
+                use_cdn:
+                  type: integer
+                  description: "Use CDN credits for your own downloads (0/1)."
+                download_menu:
+                  type: integer
+                  description: "Display the download menu (0/1)."
+      responses:
+        '200':
+          description: Account info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: "Request status (OK/KO)."
+                  message:
+                    type: string
+                    description: "Information message."
+                  email:
+                    type: string
+                    description: "Email address."
+                  offer:
+                    type: integer
+                    description: "Customer offer. 0: No, 1: Premium, 2: Access."
+                  2fa:
+                    type: integer
+                    description: "2-factor authentication. 0: No, 1: Email code, 2: Google Authenticator."
+                  mail_rm:
+                    type: integer
+                    description: "Mail remove option (0/1)."
+                  ftp_mode:
+                    type: integer
+                    description: "FTP mode (0/1)."
+                  ftp_did:
+                    type: integer
+                    description: "FTP destination folder ID."
+                  ftp_report:
+                    type: integer
+                    description: "FTP report (0/1)."
+                  ru_report:
+                    type: integer
+                    description: "Remote upload report (0/1)."
+                  default_domain:
+                    type: integer
+                    description: "Default domain ID."
+                  page_limit:
+                    type: integer
+                    description: "Page limit for files."
+                  default_port:
+                    type: integer
+                    description: "Default download port."
+                  default_port_files:
+                    type: integer
+                    description: "Default download port for files."
+                  cdn:
+                    type: number
+                    description: "CDN credits in GB."
+                  download_menu:
+                    type: integer
+                    description: "Display download menu (0/1)."
+                  use_cdn:
+                    type: integer
+                    description: "Use CDN credits (0/1)."
+                  subscription_end:
+                    type: string
+                    description: "Date when current subscription ends."
+                  default_quota:
+                    type: integer
+                    description: "Default global account quota (deprecated)."
+                  default_cold_storage_quota:
+                    type: integer
+                    description: "Default cold storage quota."
+                  hot_storage:
+                    type: integer
+                    description: "Account hot storage usage in bytes."
+                  cold_storage:
+                    type: integer
+                    description: "Account cold storage usage in bytes."
+                  stats_date:
+                    type: string
+                    description: "Statistics last update date."
+                  allowed_cold_storage:
+                    type: integer
+                    description: "Allowed cold storage quota."
+                  available_storage:
+                    type: integer
+                    description: "Available (or excess) quota in bytes."
+                  available_cold_storage:
+                    type: integer
+                    description: "Available cold storage quota in bytes."
+                  extended_quota:
+                    type: integer
+                    description: "Extended cold storage capacities (in TB)."
+                  extended_quota_end:
+                    type: string
+                    description: "Extended cold storage subscription end."
+                  overquota:
+                    type: integer
+                    description: "If the account exceeds its authorized quota (0/1)."
+                  upload_forbidden:
+                    type: integer
+                    description: "If file upload is forbidden (quota reached, abuse, ...)."
+  /remote/ls.cgi:
+    post:
+      summary: List remote uploads
+      tags:
+        - "Remote Upload"
+      responses:
+        '200':
+          description: List of remote uploads
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: "Request status (OK/KO)."
+                  data:
+                    type: array
+                    description: "Array of remote upload objects."
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          description: "Remote upload request ID."
+                        request_date:
+                          type: string
+                          description: "Date of request."
+                        execution_date:
+                          type: string
+                          description: "Date of execution (empty if not executed)."
+  /remote/info.cgi:
+    post:
+      summary: Get remote upload info
+      tags:
+        - "Remote Upload"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string }
+      responses:
+        '200':
+          description: Remote upload info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: "Remote upload request ID."
+                  request_date:
+                    type: string
+                    description: "Date of request."
+                  execution_date:
+                    type: string
+                    description: "Date of execution."
+                  links:
+                    type: array
+                    description: "Request links."
+                    items: { type: string }
+                  result:
+                    type: array
+                    description: "Execution report."
+                    items:
+                      type: object
+                      properties:
+                        status:
+                          type: string
+                          description: "Status (OK/KO)."
+                        url:
+                          type: string
+                          description: "Request URL."
+                        download_link:
+                          type: string
+                          description: "Download link."
+                        message:
+                          type: string
+                          description: "Download information."
+  /remote/request.cgi:
+    post:
+      summary: Request remote upload
+      tags:
+        - "Remote Upload"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                urls:
+                  type: array
+                  items: { type: string }
+                folder_id: { type: integer }
+                headers:
+                  type: object
+                  additionalProperties: { type: string }
+      responses:
+        '200':
+          description: Remote upload request result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: "Remote upload request ID."
+                  date:
+                    type: string
+                    description: "Date of request."
+                  status:
+                    type: string
+                    description: "Request status (OK/KO)."
+                  urls:
+                    type: array
+                    description: "Array of URLs requested."
+                    items: { type: string }
+                  headers:
+                    type: object
+                    description: "Headers sent with the request."
+                    additionalProperties: { type: string }
+  /vouchers/ls.cgi:
+    post:
+      summary: List unused vouchers
+      tags:
+        - "Voucher"
+      responses:
+        '200':
+          description: List of vouchers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: "Request status (OK)."
+                  count:
+                    type: integer
+                    description: "Number of vouchers found."
+                  data:
+                    type: array
+                    description: "Array of voucher objects."
+                    items:
+                      type: object
+                      properties:
+                        voucher:
+                          type: string
+                          description: "Voucher code (32 characters)."
+                        service:
+                          type: string
+                          description: "Type of associated service."
+  /vouchers/check.cgi:
+    post:
+      summary: Check voucher validity
+      tags:
+        - "Voucher"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                voucher: { type: string }
+      responses:
+        '200':
+          description: Voucher validity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: "If the voucher is valid or not."
+                  service:
+                    type: string
+                    description: "Type of associated service."
+  /vouchers/use.cgi:
+    post:
+      summary: Use voucher
+      tags:
+        - "Voucher"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                voucher: { type: string }
+                user_email: { type: string }
+      responses:
+        '200':
+          description: Voucher use result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: "Request status (OK/KO)."
+                  message:
+                    type: string
+                    description: "Error message if status = KO."
