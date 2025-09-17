@@ -2,7 +2,7 @@
   "name": "1fichier",
   "version": "0.0.1",
   "description": "A typescript client for the 1fichier API",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
   "type": "module",
   "scripts": {
     "build": "swc src -d dist",
